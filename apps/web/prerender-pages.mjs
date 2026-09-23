@@ -16,7 +16,7 @@
  * The app is a single `/` route; all views switch client-side, so one
  * prerendered document plus the client bundle is a complete static site.
  */
-import { cp, mkdir, readFile, readdir, writeFile } from "node:fs/promises";
+import { cp, mkdir, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import http from "node:http";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -50,6 +50,10 @@ if (!html.includes("<title>FingerSpeak")) {
 }
 
 await mkdir(outDir, { recursive: true });
+for (const entry of await readdir(outDir, { withFileTypes: true })) {
+  if (entry.name === ".git") continue;
+  await rm(path.join(outDir, entry.name), { recursive: true, force: true });
+}
 await cp(path.join(here, "dist", "client"), outDir, { recursive: true });
 
 /** Rewrite root-absolute "/..." refs to "{base}/..." (skips //external, />, and prose "/ "). */
@@ -66,7 +70,7 @@ async function collectFiles(dir, exts, out = []) {
 
 if (base) {
   html = prefixRootAbsolute(html);
-  html = html.replace("<head>", `<head><base href="${base}/"/><script>if(location.pathname==="${base}")location.replace("${base}/"+location.search+location.hash);</script>`);
+  html = html.replace("<head>", `<head><base href="${base}/"/><script>if(location.pathname==="${base}")location.replace("${base}/"+location.search+location.hash);if("serviceWorker" in navigator){navigator.serviceWorker.getRegistrations().then(function(rs){for(var i=0;i<rs.length;i++)rs[i].update();});}</script>`);
   html = html.replaceAll("css:/_next/", `css:${base}/_next/`);
   html = html.replaceAll('"pathname":"/"', `"pathname":"${base}/"`);
 
@@ -75,7 +79,7 @@ if (base) {
   let sw = await readFile(swPath, "utf8");
   sw = prefixRootAbsolute(sw);
   sw = sw.replace(/(["'`])\/([\"'`])/g, `$1${base}/$2`);
-  sw = sw.replace(/const CACHE = "[^"]+";/, `const CACHE = "fingerspeak-v2-edge-v8";`);
+  sw = sw.replace(/const CACHE = "[^"]+";/, `const CACHE = "fingerspeak-v2-edge-v9";`);
   sw = sw.replace('pathname.startsWith("/_next/static/")', `pathname.startsWith("${base}/_next/static/")`);
   sw = sw.replace('pathname.startsWith("/assets/")', `pathname.startsWith("${base}/assets/")`);
   await writeFile(swPath, sw);
@@ -84,8 +88,16 @@ if (base) {
   for (const file of await collectFiles(path.join(outDir, "_next"), [".js", ".css"])) {
     let chunk = await readFile(file, "utf8");
     chunk = prefixRootAbsolute(chunk);
-    chunk = chunk.replace(/(["'`])_next\//g, `$1${base}/_next/`);
     chunk = chunk.replaceAll('"pathname":"/"', `"pathname":"${base}/"`);
+    // Fix Vite's dynamic import preload helper:
+    // Vite compiles __vite__preload with `Tl=function(e){return`/`+e}`.
+    // If the dependency array is prefixed with base, prepending "/" produces
+    // "//base/..." which browser treats as a protocol-relative hostname (ERR_NAME_NOT_RESOLVED).
+    // We rewrite Tl to safely resolve under base without double-slashing:
+    chunk = chunk.replace(
+      /function\(([a-zA-Z0-9_]+)\)\{return[`'"]\/[`'"]\+\1\}/g,
+      `function($1){return $1.startsWith("${base}/")?$1:("${base}/"+$1.replace(/^\\/+/,""))}`
+    );
     await writeFile(file, chunk);
   }
 
@@ -108,7 +120,7 @@ console.log(`Pages bundle ready: ${outDir} (${html.length} bytes HTML, base="${b
 // must be zero for subpaths.
 const baseName = base ? base.replace(/^\//, "").replace(/[.*+?^${}()|[\]\\]/g, "\\$&") : null;
 const residualPattern = baseName
-  ? new RegExp(`(["'\`(\\s])\\/(?=[a-zA-Z0-9_.~-])(?!${baseName}\\/)`, "g")
+  ? new RegExp(`(["'\`(\\s])\\/(?=[a-zA-Z0-9_.~-])(?!${baseName}(?:\\/|["'\`]))`, "g")
   : /(["'`(\s])\/(?=[a-zA-Z0-9_.~-])/g;
 const leftovers = new Set();
 for (const file of [path.join(outDir, "index.html"), path.join(outDir, "sw.js")]) {
