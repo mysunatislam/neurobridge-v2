@@ -66,16 +66,36 @@ async function collectFiles(dir, exts, out = []) {
 
 if (base) {
   html = prefixRootAbsolute(html);
+  html = html.replace("<head>", `<head><base href="${base}/"/><script>if(location.pathname==="${base}")location.replace("${base}/"+location.search+location.hash);</script>`);
+  html = html.replaceAll("css:/_next/", `css:${base}/_next/`);
+  html = html.replaceAll('"pathname":"/"', `"pathname":"${base}/"`);
+
   // Service worker: cache keys, precache list, and path gates.
   const swPath = path.join(outDir, "sw.js");
-  await writeFile(swPath, prefixRootAbsolute(await readFile(swPath, "utf8")));
-  // App chunks reference /sw.js, /mediapipe/wasm and /models/*.task literals.
+  let sw = await readFile(swPath, "utf8");
+  sw = prefixRootAbsolute(sw);
+  sw = sw.replace(/(["'`])\/([\"'`])/g, `$1${base}/$2`);
+  sw = sw.replace(/const CACHE = "[^"]+";/, `const CACHE = "fingerspeak-v2-edge-v8";`);
+  sw = sw.replace('pathname.startsWith("/_next/static/")', `pathname.startsWith("${base}/_next/static/")`);
+  sw = sw.replace('pathname.startsWith("/assets/")', `pathname.startsWith("${base}/assets/")`);
+  await writeFile(swPath, sw);
+
+  // App chunks reference /sw.js, /mediapipe/wasm, /models/*.task, and _next/static chunk arrays.
   for (const file of await collectFiles(path.join(outDir, "_next"), [".js", ".css"])) {
-    await writeFile(file, prefixRootAbsolute(await readFile(file, "utf8")));
+    let chunk = await readFile(file, "utf8");
+    chunk = prefixRootAbsolute(chunk);
+    chunk = chunk.replace(/(["'`])_next\//g, `$1${base}/_next/`);
+    chunk = chunk.replaceAll('"pathname":"/"', `"pathname":"${base}/"`);
+    await writeFile(file, chunk);
   }
+
   // Web manifest icons + start_url/scope.
   for (const file of await collectFiles(outDir, [".webmanifest"])) {
-    await writeFile(file, prefixRootAbsolute(await readFile(file, "utf8")));
+    let manifest = await readFile(file, "utf8");
+    manifest = prefixRootAbsolute(manifest);
+    manifest = manifest.replace(/"start_url":\s*"\/"/g, `"start_url": "${base}/"`);
+    manifest = manifest.replace(/"scope":\s*"\/"/g, `"scope": "${base}/"`);
+    await writeFile(file, manifest);
   }
 }
 
