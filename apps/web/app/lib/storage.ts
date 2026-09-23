@@ -1,6 +1,5 @@
 import type { FingerSpeakProfile, PrototypeModel } from "./fingerspeak";
 import type { CareRoutineProgress, CareRoutineSettings } from "./care-routines";
-import type { FaceControlSettings } from "./face-controls";
 import type { CaregiverPhraseRecording, PatientSpeechSettings, PhraseAudioKind } from "./patient-voice";
 
 const DATABASE = "fingerspeak-device";
@@ -181,8 +180,6 @@ export const deviceStorage = {
   loadCareRoutineSettings: (profileId: string) => get<CareRoutineSettings>("care", `care-routines:${profileId}`),
   saveCareRoutineProgress: (progress: CareRoutineProgress) => put("care", progress),
   loadCareRoutineProgress: (profileId: string) => get<CareRoutineProgress>("care", `care-routine-progress:${profileId}`),
-  saveFaceControlSettings: (settings: FaceControlSettings) => put("care", settings),
-  loadFaceControlSettings: (profileId: string) => get<FaceControlSettings>("care", `face-controls:${profileId}`),
   saveCaregiverPhraseRecording: (recording: CaregiverPhraseRecording) => put("audio", recording),
   loadCaregiverPhraseRecording: (profileId: string, kind: PhraseAudioKind, phraseId: string) =>
     get<CaregiverPhraseRecording>("audio", `caregiver-audio:${profileId}:${kind}:${phraseId}`),

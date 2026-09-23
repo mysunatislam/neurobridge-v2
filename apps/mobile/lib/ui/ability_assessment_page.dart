@@ -6,7 +6,6 @@ import '../core/mobile_services.dart';
 import '../models/patient_access_method.dart';
 import '../models/personal_access_profile.dart';
 import '../services/access_assessment_service.dart';
-import 'facial_calibration_flow.dart';
 
 class AbilityAssessmentPage extends StatefulWidget {
   const AbilityAssessmentPage({
@@ -98,31 +97,9 @@ class _AbilityAssessmentPageState extends State<AbilityAssessmentPage> {
 
     await widget.services.accessProfileRepository.save(profile);
     
-    if (rec.primaryModality == AccessModality.handGestures) {
-      await widget.services.patientAccessMethodRepository.save(PatientAccessMethod.handGestures);
-    } else {
-      await widget.services.patientAccessMethodRepository.save(PatientAccessMethod.faceEyesAndHead);
-    }
+    await widget.services.patientAccessMethodRepository.save(PatientAccessMethod.handGestures);
 
     if (!mounted) return;
-
-    if (rec.autoFacialCalibrationTriggered) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'Hand/Finger score < 50%: Auto Facial Calibration Mode Activated.',
-          ),
-          backgroundColor: Color(0xFF0F766E),
-          duration: Duration(seconds: 4),
-        ),
-      );
-      await Navigator.of(context).push(
-        MaterialPageRoute<void>(
-          builder: (_) => FacialCalibrationFlow(services: widget.services),
-        ),
-      );
-      if (!mounted) return;
-    }
 
     if (widget.onCompleted != null) {
       widget.onCompleted!();

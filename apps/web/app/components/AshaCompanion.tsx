@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { sendAshaChat, type AshaCitation } from "../lib/api";
 import { offlineCompanionReply } from "../lib/asha-companion";
 import type { SomaticEvent } from "../lib/maira-api";
@@ -72,7 +72,6 @@ function safeCitationUrl(value: string | undefined): string | null {
 }
 
 export function AshaCompanion({
-  aiAvailable,
   patientContext,
   somaticEvents = [],
   caregiverConfigured,
@@ -85,7 +84,7 @@ export function AshaCompanion({
   const [messages, setMessages] = useState<CompanionMessage[]>([{
     id: "asha-welcome",
     role: "asha",
-    text: "Hello! I am Asha, powered by Gigalogy Maira Specialist AI. I am actively monitoring your FingerSpeak hand signals and NeuroSense face gestures. How can I support your care and communication right now?",
+    text: "Hello! I am Asha, powered by Gigalogy Maira Specialist AI. I am actively monitoring your FingerSpeak hand signals. How can I support your care and communication right now?",
     mode: "maira-specialist",
   }]);
   const [draft, setDraft] = useState("");
@@ -322,11 +321,11 @@ export function AshaCompanion({
         )}
       </ol>
 
-      {/* Somatic Context Pill Bar (FingerSpeak + NeuroSense) */}
+      {/* Somatic Context Pill Bar (FingerSpeak Hand Gestures) */}
       {somaticEvents && somaticEvents.length > 0 && (
         <div style={{ padding: "8px 20px 0", display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
           <span style={{ fontSize: "10px", fontWeight: 800, color: "var(--ink-soft)", textTransform: "uppercase", letterSpacing: "0.05em" }}>
-            Recent Signal:
+            Recent Hand Gesture:
           </span>
           {somaticEvents.slice(-2).map((ev) => (
             <button
@@ -346,14 +345,13 @@ export function AshaCompanion({
                 cursor: "pointer",
               }}
               onClick={(e) => {
-                const q = `I recently triggered ${ev.modality === "neurosense_face" ? "NeuroSense face gesture" : "FingerSpeak hand gesture"} "${ev.phrase || ev.gestureId}". What clinical or safe posture guidance should I follow?`;
+                const q = `I recently triggered FingerSpeak hand gesture "${ev.phrase || ev.gestureId}". What clinical or safe posture guidance should I follow?`;
                 void submitMessage(e, q);
               }}
-              title="Click to ask Maira AI about this signal"
+              title="Click to ask Maira AI about this hand gesture"
             >
-              <span>{ev.modality === "neurosense_face" ? "👁️" : "✋"}</span>
+              <span>✋</span>
               <span>{ev.phrase || ev.gestureId}</span>
-              <small style={{ opacity: 0.7 }}>({ev.modality === "neurosense_face" ? "Face" : "Hand"})</small>
             </button>
           ))}
         </div>

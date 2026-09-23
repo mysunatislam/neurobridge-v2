@@ -1,10 +1,9 @@
 "use client";
 
-import type { FaceLandmarker, HandLandmarker } from "@mediapipe/tasks-vision";
+import type { HandLandmarker } from "@mediapipe/tasks-vision";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AshaAvatar } from "./AshaAvatar";
 import { AshaCompanion } from "./AshaCompanion";
-import { NeuroSenseDashboard } from "./NeuroSenseDashboard";
 import { PiDisplayView } from "./PiDisplayView";
 import { usePiDevice } from "../hooks/usePiDevice";
 import {
@@ -40,7 +39,12 @@ import {
 } from "../lib/fingerspeak";
 import { IntentMachine, type IntentOutput } from "../lib/intent-machine";
 import { importPrototypeBundle } from "../lib/model-bundle";
-import { routePiPatientIntent, type PiEmergencyArm } from "../lib/pi-intent-routing";
+import {
+  createDefaultPiControlSettings,
+  routePiPatientIntent,
+  type PiControlSettings,
+  type PiEmergencyArm,
+} from "../lib/pi-intent-routing";
 import { dialablePhone } from "../lib/asha-companion";
 import { deviceStorage, type LocalContactSettings, type OutboxEvent } from "../lib/storage";
 import {
@@ -61,26 +65,6 @@ import {
   validateCareRoutineSettings,
   type CareRoutineSettings,
 } from "../lib/care-routines";
-import {
-  type FaceLandmarkerCompatibleResult,
-} from "../lib/face-intent";
-import {
-  DEFAULT_NEUROFACE_BINDINGS,
-  DEFAULT_NEUROFACE_TWIN,
-  NEUROFACE_RULE_IDS,
-  NEUROFACE_RULE_LABELS,
-  NEUROFACE_RULE_PHRASES,
-  NeuroFaceAutoCalibrator,
-  NeuroFaceRuleEngine,
-  type NeuroFaceRuleId,
-  type NeuroFaceStatus,
-  type NeuroFaceMetrics,
-} from "../lib/neuroface-rules";
-import {
-  createDefaultFaceControlSettings,
-  validateFaceControlSettings,
-  type FaceControlSettings,
-} from "../lib/face-controls";
 import type { SomaticEvent } from "../lib/maira-api";
 
 type View = "speak" | "pi-display" | "calibrate" | "caregiver";
@@ -92,7 +76,7 @@ type SpokenEntry = {
   gesture: string;
   risk: Gesture["risk"];
   at: string;
-  source: "gesture" | "touch" | "face" | "pi";
+  source: "gesture" | "touch" | "pi";
 };
 
 type VoicePhraseOption = {
@@ -166,7 +150,7 @@ export function FingerSpeakApp() {
   const [captureMessage, setCaptureMessage] = useState("Capture two clear examples of each movement.");
   const [prediction, setPrediction] = useState({ gestureId: null as string | null, confidence: 0, inDistribution: false });
   const [intent, setIntent] = useState<IntentOutput>(() => new IntentMachine().snapshot());
-  const [voiceMessage, setVoiceMessage] = useState("Ready to speak.");
+  const [, setVoiceMessage] = useState("Ready to speak.");
   const [spoken, setSpoken] = useState<SpokenEntry[]>([]);
   const [armedGestureId, setArmedGestureId] = useState<string | null>(null);
   const [serverOnline, setServerOnline] = useState(false);
@@ -189,26 +173,7 @@ export function FingerSpeakApp() {
   const [remoteDevices, setRemoteDevices] = useState<RemoteDevice[]>([]);
   const [remoteDeviceMessage, setRemoteDeviceMessage] = useState("No verified patient-device heartbeat yet.");
   const [ashaOpen, setAshaOpen] = useState(false);
-  const [faceTracking, setFaceTracking] = useState(false);
-  const [neurofaceStatus, setNeurofaceStatus] = useState<NeuroFaceStatus>(() => new NeuroFaceRuleEngine(DEFAULT_NEUROFACE_TWIN).snapshot());
-  const [faceCalibrationMessage, setFaceCalibrationMessage] = useState("Face rules auto-calibrate from your relaxed face — no setup needed.");
-  const [faceCalibrationProgress, setFaceCalibrationProgress] = useState(0);
-  const [neurofaceBindings, setNeurofaceBindings] = useState<Record<NeuroFaceRuleId, string | null>>(() => {
-    if (typeof window === "undefined") return { ...DEFAULT_NEUROFACE_BINDINGS };
-    try {
-      const saved = JSON.parse(localStorage.getItem("neuroface.bindings.v1") ?? "null") as Record<NeuroFaceRuleId, string | null> | null;
-      if (saved) return { ...DEFAULT_NEUROFACE_BINDINGS, ...saved };
-    } catch { /* fall through to defaults */ }
-    return { ...DEFAULT_NEUROFACE_BINDINGS };
-  });
-  const [neurofaceEnabled, setNeurofaceEnabled] = useState(() => {
-    if (typeof window === "undefined") return true;
-    try {
-      const saved = localStorage.getItem("neuroface.enabled.v1");
-      return saved === null ? true : saved === "true";
-    } catch { return true; }
-  });
-  const [faceControls, setFaceControls] = useState<FaceControlSettings>(() => createDefaultFaceControlSettings("local-profile"));
+  const [piControls] = useState<PiControlSettings>(() => createDefaultPiControlSettings("local-profile"));
   const [speechSettings, setSpeechSettings] = useState<PatientSpeechSettings>(() => createDefaultPatientSpeechSettings("local-profile"));
   const [systemVoices, setSystemVoices] = useState<SpeechSynthesisVoice[]>([]);
   const [routineSettings, setRoutineSettings] = useState<CareRoutineSettings>(() => createDefaultCareRoutineSettings("local-profile"));
@@ -233,13 +198,13 @@ export function FingerSpeakApp() {
       } catch { /* use defaults */ }
     }
     return [
-      { id: "blink", signal: "Blink", phrase: "I need some help", sensitivity: 75, dwellMs: 0 },
-      { id: "mouth-open", signal: "Mouth Open", phrase: "I would like some water", sensitivity: 70, dwellMs: 0 },
-      { id: "brows-up", signal: "Eyebrows Up", phrase: "Yes", sensitivity: 70, dwellMs: 0 },
-      { id: "smile", signal: "Smile", phrase: "Thank you", sensitivity: 75, dwellMs: 0 },
+      { id: "hand-open", signal: "Open Palm", phrase: "I need some help", sensitivity: 75, dwellMs: 0 },
+      { id: "hand-fist", signal: "Closed Fist", phrase: "I would like some water", sensitivity: 70, dwellMs: 0 },
+      { id: "hand-thumbsup", signal: "Thumbs Up", phrase: "Yes", sensitivity: 70, dwellMs: 0 },
+      { id: "hand-point", signal: "Pointing", phrase: "Thank you", sensitivity: 75, dwellMs: 0 },
     ];
   });
-  const [newPhraseSignal, setNewPhraseSignal] = useState("Blink");
+  const [newPhraseSignal, setNewPhraseSignal] = useState("Open Palm");
   const [newPhraseText, setNewPhraseText] = useState("");
   const [newPhraseSensitivity, setNewPhraseSensitivity] = useState(75);
   const [newPhraseDwell, setNewPhraseDwell] = useState(0);
@@ -248,16 +213,7 @@ export function FingerSpeakApp() {
   const [caregiverRecordingConfirmed, setCaregiverRecordingConfirmed] = useState(false);
   const [recordingActive, setRecordingActive] = useState(false);
   const [recordingStarting, setRecordingStarting] = useState(false);
-  const [focusedPhraseIndex, setFocusedPhraseIndex] = useState(0);
-  const [dwellProgress, setDwellProgress] = useState(0);
-  const [recentlySelectedId, setRecentlySelectedId] = useState<string | null>(null);
   const [recentSomaticEvents, setRecentSomaticEvents] = useState<SomaticEvent[]>([]);
-  const [showNeuroSenseDashboard, setShowNeuroSenseDashboard] = useState(false);
-
-  const focusedPhraseIndexRef = useRef(0);
-  focusedPhraseIndexRef.current = focusedPhraseIndex;
-  const dwellStartRef = useRef<number | null>(null);
-  const dwellTriggeredRef = useRef(false);
 
   const selectRole = useCallback((newRole: "patient" | "caregiver") => {
     setRole(newRole);
@@ -278,7 +234,6 @@ export function FingerSpeakApp() {
   const modelInputRef = useRef<HTMLInputElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const landmarkerRef = useRef<HandLandmarker | null>(null);
-  const faceLandmarkerRef = useRef<FaceLandmarker | null>(null);
   const animationRef = useRef<number | null>(null);
   const processFrameRef = useRef<() => void>(() => undefined);
   const recentFramesRef = useRef<TimedRawFrame[]>([]);
@@ -294,11 +249,7 @@ export function FingerSpeakApp() {
   const modelRef = useRef<PrototypeModel | null>(null);
   const profileRef = useRef(profile);
   const localContactsRef = useRef(localContacts);
-  const faceControlsRef = useRef(faceControls);
-  const neurofaceCalibratorRef = useRef<NeuroFaceAutoCalibrator | null>(new NeuroFaceAutoCalibrator());
-  const neurofaceEngineRef = useRef(new NeuroFaceRuleEngine(DEFAULT_NEUROFACE_TWIN));
-  const neurofaceBindingsRef = useRef(neurofaceBindings);
-  const neurofaceEnabledRef = useRef(neurofaceEnabled);
+  const piControlsRef = useRef(piControls);
   const patientSpeechRef = useRef(createPatientSpeechService());
   const caregiverCaptureRef = useRef<ActiveCaregiverMicrophoneCapture | null>(null);
   const caregiverCaptureTargetRef = useRef<(VoicePhraseOption & { profileId: string; caregiverName: string }) | null>(null);
@@ -314,28 +265,14 @@ export function FingerSpeakApp() {
     () => profile.gestures.find((gesture) => gesture.id === prediction.gestureId) ?? null,
     [prediction.gestureId, profile.gestures],
   );
-  const currentFaceGesture = useMemo<Gesture | null>(() => {
-    const rule = neurofaceStatus.lastTrigger?.rule;
-    if (!rule) return null;
-    const gestureId = neurofaceBindings[rule];
-    const bound = gestureId ? profile.gestures.find((gesture) => gesture.id === gestureId) : undefined;
-    if (bound?.phrase) return bound;
-    return {
-      id: `face:${rule}`,
-      name: NEUROFACE_RULE_LABELS[rule],
-      phrase: NEUROFACE_RULE_PHRASES[rule],
-      icon: "◉",
-      risk: "routine" as const,
-      dwellMs: 0,
-      samples: [],
-    };
-  }, [neurofaceBindings, neurofaceStatus.lastTrigger, profile.gestures]);
   const activePhrases = useMemo(
     () => profile.gestures.filter((gesture) => gesture.phrase),
     [profile.gestures],
   );
   const activePhrasesRef = useRef(activePhrases);
-  activePhrasesRef.current = activePhrases;
+  useEffect(() => {
+    activePhrasesRef.current = activePhrases;
+  }, [activePhrases]);
   const calibrationReady = profile.gestures.every((gesture) => gesture.samples.length >= 2);
   const capturedCount = profile.gestures.reduce((total, gesture) => total + gesture.samples.length, 0);
   const requiredCount = profile.gestures.length * 2;
@@ -380,19 +317,20 @@ export function FingerSpeakApp() {
     ?? null;
 
   // Liquid Glass Dual Theme State (Bright & Dark Mode)
-  const [isDark, setIsDark] = useState<boolean>(true);
+  const [isDark, setIsDark] = useState<boolean>(() => {
+    if (typeof window === "undefined") return true;
+    try {
+      const savedTheme = localStorage.getItem("neurobridge-theme");
+      return savedTheme ? savedTheme === "dark" : true;
+    } catch {
+      return true;
+    }
+  });
   const [previewingVoice, setPreviewingVoice] = useState<string | null>(null);
 
   useEffect(() => {
-    try {
-      const savedTheme = localStorage.getItem("neurobridge-theme");
-      const activeDark = savedTheme ? savedTheme === "dark" : true;
-      setIsDark(activeDark);
-      document.documentElement.setAttribute("data-theme", activeDark ? "dark" : "light");
-    } catch {
-      // Ignore if localStorage unavailable
-    }
-  }, []);
+    document.documentElement.setAttribute("data-theme", isDark ? "dark" : "light");
+  }, [isDark]);
 
   const toggleTheme = useCallback(() => {
     setIsDark((prev) => {
@@ -528,16 +466,8 @@ export function FingerSpeakApp() {
   }, [localContacts]);
 
   useEffect(() => {
-    faceControlsRef.current = faceControls;
-  }, [faceControls]);
-
-  useEffect(() => {
-    neurofaceBindingsRef.current = neurofaceBindings;
-  }, [neurofaceBindings]);
-
-  useEffect(() => {
-    neurofaceEnabledRef.current = neurofaceEnabled;
-  }, [neurofaceEnabled]);
+    piControlsRef.current = piControls;
+  }, [piControls]);
 
   useEffect(() => {
     modelRef.current = model;
@@ -548,8 +478,7 @@ export function FingerSpeakApp() {
     void Promise.all([
       deviceStorage.loadPatientSpeechSettings(profile.id),
       deviceStorage.loadCareRoutineSettings(profile.id),
-      deviceStorage.loadFaceControlSettings(profile.id),
-    ]).then(([savedSpeech, savedRoutines, savedFace]) => {
+    ]).then(([savedSpeech, savedRoutines]) => {
       if (cancelled) return;
       const nextSpeech = savedSpeech
         ? validatePatientSpeechSettings(savedSpeech)
@@ -557,16 +486,8 @@ export function FingerSpeakApp() {
       const nextRoutines = savedRoutines
         ? validateCareRoutineSettings(savedRoutines)
         : createDefaultCareRoutineSettings(profile.id);
-      const nextFace = savedFace
-        ? validateFaceControlSettings(savedFace)
-        : createDefaultFaceControlSettings(profile.id);
       setSpeechSettings(nextSpeech);
       setRoutineSettings(nextRoutines);
-      setFaceControls(nextFace);
-      faceControlsRef.current = nextFace;
-      neurofaceCalibratorRef.current = new NeuroFaceAutoCalibrator();
-      neurofaceEngineRef.current = new NeuroFaceRuleEngine();
-      setNeurofaceStatus(neurofaceEngineRef.current.snapshot());
     }).catch(() => {
       if (!cancelled) setCareSettingsMessage("Some local voice or reminder settings could not be loaded.");
     });
@@ -840,7 +761,6 @@ export function FingerSpeakApp() {
   const stopCamera = useCallback(() => {
     cameraStartTokenRef.current += 1;
     cameraStartingRef.current = false;
-    const calibrationWasActive = neurofaceCalibratorRef.current !== null;
     if (animationRef.current !== null) cancelAnimationFrame(animationRef.current);
     animationRef.current = null;
     streamRef.current?.getTracks().forEach((track) => track.stop());
@@ -852,11 +772,6 @@ export function FingerSpeakApp() {
     }
     try { landmarkerRef.current?.close(); } catch { /* The camera is already stopping. */ }
     landmarkerRef.current = null;
-    try { faceLandmarkerRef.current?.close(); } catch { /* The camera is already stopping. */ }
-    faceLandmarkerRef.current = null;
-    neurofaceCalibratorRef.current = new NeuroFaceAutoCalibrator();
-    neurofaceEngineRef.current = new NeuroFaceRuleEngine();
-    setNeurofaceStatus(neurofaceEngineRef.current.snapshot());
     recentFramesRef.current = [];
     captureFramesRef.current = [];
     capturingRef.current = false;
@@ -867,15 +782,10 @@ export function FingerSpeakApp() {
     machineRef.current.reset();
     setIntent(machineRef.current.snapshot());
     setTracking(false);
-    setFaceTracking(false);
-    setFaceCalibrationProgress(0);
     lastVisionRef.current = 0;
     lastVideoTimeRef.current = -1;
     setCameraStatus("off");
     setCameraMessage("Camera stopped. No camera frames were saved or uploaded.");
-    if (calibrationWasActive) {
-      setFaceCalibrationMessage("Face monitor stopped. Auto-calibration restarts with the camera.");
-    }
     const canvas = canvasRef.current;
     canvas?.getContext("2d")?.clearRect(0, 0, canvas.width, canvas.height);
   }, []);
@@ -916,7 +826,7 @@ export function FingerSpeakApp() {
     setSpoken((current) => [entry, ...current].slice(0, 12));
     const somaticEv: SomaticEvent = {
       id: eventId(),
-      modality: source === "face" ? "neurosense_face" : "fingerspeak_hand",
+      modality: "fingerspeak_hand",
       gestureId: gesture.id,
       phrase: gesture.phrase,
       timestamp: Date.now(),
@@ -937,45 +847,13 @@ export function FingerSpeakApp() {
     if (gesture.risk !== "routine") void queueEvent(gesture, "caregiver_alert");
   }, [queueEvent]);
 
-  const speakNeurofaceTrigger = useCallback((rule: NeuroFaceRuleId) => {
-    const gestureId = neurofaceBindingsRef.current[rule];
-    const bound = gestureId ? profileRef.current.gestures.find((item) => item.id === gestureId) : undefined;
-    const gesture: Gesture = bound?.phrase ? bound : {
-      id: `face:${rule}`,
-      name: NEUROFACE_RULE_LABELS[rule],
-      phrase: NEUROFACE_RULE_PHRASES[rule],
-      icon: "◉",
-      risk: "routine" as const,
-      dwellMs: 0,
-      samples: [],
-    };
-    const somaticEv: SomaticEvent = {
-      id: eventId(),
-      modality: "neurosense_face",
-      gestureId: rule,
-      phrase: gesture.phrase,
-      detail: NEUROFACE_RULE_LABELS[rule],
-      timestamp: Date.now(),
-    };
-    setRecentSomaticEvents((current) => [...current, somaticEv].slice(-6));
-    speakGesture(gesture, "face");
-  }, [speakGesture]);
-
-  const executePhraseSelection = useCallback((gesture: Gesture) => {
-    setRecentlySelectedId(gesture.id);
-    speakGesture(gesture, "face");
-    window.setTimeout(() => {
-      setRecentlySelectedId((current) => (current === gesture.id ? null : current));
-    }, 700);
-  }, [speakGesture]);
-
   useEffect(() => {
     const event = piDevice.patientIntent;
     if (!event) return;
     const route = routePiPatientIntent(
       event,
       profileRef.current,
-      faceControlsRef.current,
+      piControlsRef.current,
       piEmergencyArmRef.current,
     );
     piEmergencyArmRef.current = route.nextEmergencyArm;
@@ -1005,96 +883,6 @@ export function FingerSpeakApp() {
     piEmergencyArmTimerRef.current = null;
   }, [piDevice.status]);
 
-  const drawFace = useCallback((landmarks: ReadonlyArray<{ x: number; y: number }>, metrics: NeuroFaceMetrics | null) => {
-    const video = videoRef.current;
-    const canvas = canvasRef.current;
-    if (!video || !canvas || !video.videoWidth || !video.videoHeight) return;
-    const context = canvas.getContext("2d");
-    if (!context) return;
-
-    const w = canvas.width;
-    const h = canvas.height;
-
-    // Face oval contour
-    const FACE_OVAL = [10, 338, 297, 332, 284, 251, 389, 356, 454, 323, 361, 288, 397, 365, 379, 378, 400, 377, 152, 148, 176, 149, 150, 136, 172, 58, 132, 93, 234, 127, 162, 21, 54, 103, 67, 109, 10];
-    context.beginPath();
-    context.strokeStyle = "rgba(13, 148, 136, 0.4)";
-    context.lineWidth = 1.5;
-    for (let i = 0; i < FACE_OVAL.length; i++) {
-      const pt = landmarks[FACE_OVAL[i]];
-      if (pt) {
-        if (i === 0) context.moveTo(pt.x * w, pt.y * h);
-        else context.lineTo(pt.x * w, pt.y * h);
-      }
-    }
-    context.stroke();
-
-    // Eye contours (left & right)
-    const EYE_LEFT = [33, 160, 158, 133, 153, 144, 33];
-    const EYE_RIGHT = [362, 385, 387, 263, 373, 380, 362];
-    context.strokeStyle = "rgba(13, 148, 136, 0.9)";
-    context.lineWidth = 2;
-    for (const contour of [EYE_LEFT, EYE_RIGHT]) {
-      context.beginPath();
-      for (let i = 0; i < contour.length; i++) {
-        const pt = landmarks[contour[i]];
-        if (pt) {
-          if (i === 0) context.moveTo(pt.x * w, pt.y * h);
-          else context.lineTo(pt.x * w, pt.y * h);
-        }
-      }
-      context.stroke();
-    }
-
-    // Pupils / iris centers
-    const leftIris = landmarks[468] ?? landmarks[133];
-    const rightIris = landmarks[473] ?? landmarks[362];
-    context.fillStyle = "#06b6d4";
-    if (leftIris) {
-      context.beginPath();
-      context.arc(leftIris.x * w, leftIris.y * h, 3.5, 0, Math.PI * 2);
-      context.fill();
-    }
-    if (rightIris) {
-      context.beginPath();
-      context.arc(rightIris.x * w, rightIris.y * h, 3.5, 0, Math.PI * 2);
-      context.fill();
-    }
-
-    // Mouth contour
-    const LIPS = [61, 146, 91, 181, 84, 17, 314, 405, 321, 375, 291, 409, 270, 269, 267, 0, 37, 39, 40, 185, 61];
-    context.beginPath();
-    context.strokeStyle = "rgba(13, 148, 136, 0.55)";
-    context.lineWidth = 1.5;
-    for (let i = 0; i < LIPS.length; i++) {
-      const pt = landmarks[LIPS[i]];
-      if (pt) {
-        if (i === 0) context.moveTo(pt.x * w, pt.y * h);
-        else context.lineTo(pt.x * w, pt.y * h);
-      }
-    }
-    context.stroke();
-
-    // Nose pointer / gaze indicator
-    const nose = landmarks[1];
-    if (nose) {
-      context.fillStyle = "rgba(246, 189, 96, 0.95)";
-      context.beginPath();
-      context.arc(nose.x * w, nose.y * h, 4, 0, Math.PI * 2);
-      context.fill();
-
-      if (metrics && Math.abs(metrics.yawDeg) > 4) {
-        const dx = (metrics.yawDeg / 25) * 35;
-        context.strokeStyle = "rgba(246, 189, 96, 0.8)";
-        context.lineWidth = 2.5;
-        context.beginPath();
-        context.moveTo(nose.x * w, nose.y * h);
-        context.lineTo(nose.x * w + dx, nose.y * h);
-        context.stroke();
-      }
-    }
-  }, []);
-
   const drawHand = useCallback((landmarks: ReadonlyArray<{ x: number; y: number }>) => {
     const video = videoRef.current;
     const canvas = canvasRef.current;
@@ -1117,17 +905,16 @@ export function FingerSpeakApp() {
     }
   }, []);
 
-  const stopCameraAfterVisionFailure = useCallback((modelName: "face" | "hand") => {
+  const stopCameraAfterVisionFailure = useCallback(() => {
     stopCamera();
     setCameraStatus("error");
-    setCameraMessage(`Camera processing stopped because the private ${modelName} movement model failed. Restart the camera; touch phrases remain available.`);
+    setCameraMessage("Camera processing stopped because the private hand movement model failed. Restart the camera; touch phrases remain available.");
   }, [stopCamera]);
 
   const processFrame = useCallback(() => {
     const video = videoRef.current;
     const landmarker = landmarkerRef.current;
-    const faceLandmarker = faceLandmarkerRef.current;
-    if (!video || !landmarker || !faceLandmarker || video.readyState < 2) {
+    if (!video || !landmarker || video.readyState < 2) {
       animationRef.current = requestAnimationFrame(() => processFrameRef.current());
       return;
     }
@@ -1153,97 +940,11 @@ export function FingerSpeakApp() {
       canvas.getContext("2d")?.clearRect(0, 0, canvas.width, canvas.height);
     }
 
-    let faceResult: FaceLandmarkerCompatibleResult;
-    try {
-      faceResult = faceLandmarker.detectForVideo(video, now) as FaceLandmarkerCompatibleResult;
-    } catch {
-      stopCameraAfterVisionFailure("face");
-      return;
-    }
-    const facePresent = Boolean(faceResult.faceLandmarks?.[0]?.length || faceResult.faceBlendshapes?.[0]?.categories.length);
-    setFaceTracking(facePresent);
-    const faceLandmarks = faceResult.faceLandmarks?.[0] ?? null;
-    if (faceLandmarks && faceLandmarks.length >= 468) {
-      const calibrator = neurofaceCalibratorRef.current;
-      if (calibrator) {
-        if (calibrator.add(faceLandmarks)) setFaceCalibrationProgress(calibrator.progress);
-        if (calibrator.ready) {
-          const twin = calibrator.finish();
-          neurofaceCalibratorRef.current = null;
-          neurofaceEngineRef.current.setTwin(twin);
-          setFaceCalibrationProgress(1);
-          setFaceCalibrationMessage("Face baseline learned automatically. Turn head left/right to navigate · Blink or hold 1.4s to speak.");
-        }
-      }
-      if (neurofaceEnabledRef.current) {
-        const blendshapes = faceResult.faceBlendshapes?.[0]?.categories ?? null;
-        const { status, trigger } = neurofaceEngineRef.current.step(faceLandmarks, now, blendshapes);
-        setNeurofaceStatus(status);
-        if (trigger) speakNeurofaceTrigger(trigger.rule);
-
-        // Face Navigation & Execution:
-        const currentPhrases = activePhrasesRef.current;
-        if (currentPhrases.length > 0) {
-          if (status.navEvent === "nav-left") {
-            setFocusedPhraseIndex((prev) => (prev - 1 + currentPhrases.length) % currentPhrases.length);
-            dwellStartRef.current = null;
-            dwellTriggeredRef.current = false;
-            setDwellProgress(0);
-          } else if (status.navEvent === "nav-right") {
-            setFocusedPhraseIndex((prev) => (prev + 1) % currentPhrases.length);
-            dwellStartRef.current = null;
-            dwellTriggeredRef.current = false;
-            setDwellProgress(0);
-          } else if (status.navEvent === "blink-select") {
-            const target = currentPhrases[focusedPhraseIndexRef.current];
-            if (target) {
-              executePhraseSelection(target);
-            }
-            dwellStartRef.current = null;
-            dwellTriggeredRef.current = false;
-            setDwellProgress(0);
-          } else {
-            // Steady dwell selection when face is looking directly forward
-            const isGazingForward = status.metrics && Math.abs(status.metrics.yawDeg) < 7.5;
-            if (isGazingForward && !dwellTriggeredRef.current) {
-              if (dwellStartRef.current === null) {
-                dwellStartRef.current = now;
-              } else {
-                const elapsed = now - dwellStartRef.current;
-                const DWELL_MS = 1400; // 1.4s steady dwell
-                const progress = Math.min(1, elapsed / DWELL_MS);
-                setDwellProgress(progress);
-                if (elapsed >= DWELL_MS) {
-                  const target = currentPhrases[focusedPhraseIndexRef.current];
-                  if (target) {
-                    executePhraseSelection(target);
-                  }
-                  dwellTriggeredRef.current = true;
-                  dwellStartRef.current = null;
-                  setDwellProgress(0);
-                }
-              }
-            } else if (!isGazingForward) {
-              dwellStartRef.current = null;
-              dwellTriggeredRef.current = false;
-              setDwellProgress(0);
-            }
-          }
-        }
-      }
-      drawFace(faceLandmarks, neurofaceEngineRef.current.snapshot().metrics);
-    } else if (!facePresent) {
-      neurofaceEngineRef.current.step(null, now);
-      dwellStartRef.current = null;
-      dwellTriggeredRef.current = false;
-      setDwellProgress(0);
-    }
-
     let result: ReturnType<HandLandmarker["detectForVideo"]>;
     try {
       result = landmarker.detectForVideo(video, now);
     } catch {
-      stopCameraAfterVisionFailure("hand");
+      stopCameraAfterVisionFailure();
       return;
     }
     const landmarks = result.landmarks[0];
@@ -1288,7 +989,7 @@ export function FingerSpeakApp() {
       }
     }
     animationRef.current = requestAnimationFrame(() => processFrameRef.current());
-  }, [drawFace, drawHand, executePhraseSelection, speakGesture, speakNeurofaceTrigger, stopCameraAfterVisionFailure]);
+  }, [drawHand, speakGesture, stopCameraAfterVisionFailure]);
 
   useEffect(() => {
     processFrameRef.current = processFrame;
@@ -1334,8 +1035,8 @@ export function FingerSpeakApp() {
       await videoRef.current.play();
       if (!isCurrentStart()) return;
 
-      setCameraMessage("Loading private hand, eye, and face movement models…");
-      const { FaceLandmarker, FilesetResolver, HandLandmarker } = await import("@mediapipe/tasks-vision");
+      setCameraMessage("Loading private hand movement model…");
+      const { FilesetResolver, HandLandmarker } = await import("@mediapipe/tasks-vision");
       if (!isCurrentStart()) return;
       const vision = await FilesetResolver.forVisionTasks("/mediapipe/wasm");
       if (!isCurrentStart()) return;
@@ -1359,30 +1060,6 @@ export function FingerSpeakApp() {
         return;
       }
       landmarkerRef.current = landmarker;
-      let faceLandmarker: FaceLandmarker;
-      const faceOptions = {
-        runningMode: "VIDEO" as const,
-        numFaces: 1,
-        outputFaceBlendshapes: true,
-        outputFacialTransformationMatrixes: false,
-      };
-      try {
-        faceLandmarker = await FaceLandmarker.createFromOptions(vision, {
-          ...faceOptions,
-          baseOptions: { modelAssetPath: "/models/face_landmarker.task", delegate: "GPU" },
-        });
-      } catch {
-        if (!isCurrentStart()) return;
-        faceLandmarker = await FaceLandmarker.createFromOptions(vision, {
-          ...faceOptions,
-          baseOptions: { modelAssetPath: "/models/face_landmarker.task", delegate: "CPU" },
-        });
-      }
-      if (!isCurrentStart()) {
-        try { faceLandmarker.close(); } catch { /* A cancelled start owns this model. */ }
-        return;
-      }
-      faceLandmarkerRef.current = faceLandmarker;
       stream.getVideoTracks()[0]?.addEventListener("ended", () => {
         if (!isCurrentStart()) return;
         stopCamera();
@@ -1391,7 +1068,7 @@ export function FingerSpeakApp() {
       }, { once: true });
       cameraStartingRef.current = false;
       setCameraStatus("ready");
-      setCameraMessage("Continuous hand, eye, and intentional face-movement monitoring is active on this device.");
+      setCameraMessage("Continuous hand gesture monitoring is active on this device.");
       animationRef.current = requestAnimationFrame(() => processFrameRef.current());
     } catch (error) {
       if (!isCurrentStart()) return;
@@ -1612,45 +1289,14 @@ export function FingerSpeakApp() {
       g.id.toLowerCase().includes(name.toLowerCase())
     );
     if (matchingGesture) {
-      speakGesture(matchingGesture, "face");
-      setVoiceMessage(`Simulated signal triggered: ${matchingGesture.name} → “${matchingGesture.phrase}”`);
+      speakGesture(matchingGesture, "touch");
+      setVoiceMessage(`Simulated gesture triggered: ${matchingGesture.name} → “${matchingGesture.phrase}”`);
     } else {
-      const phrase = phraseText || `Patient signal: ${name}`;
+      const phrase = phraseText || `Patient phrase: ${name}`;
       void playLocalText(phrase);
-      setVoiceMessage(`Simulated signal triggered: ${name}`);
+      setVoiceMessage(`Simulated phrase triggered: ${name}`);
     }
   }, [playLocalText, speakGesture]);
-
-  const startFaceCalibration = useCallback(() => {
-    if (cameraStatus !== "ready") {
-      setFaceCalibrationMessage("Start the private camera first — your relaxed face becomes the baseline automatically.");
-      return;
-    }
-    neurofaceCalibratorRef.current = new NeuroFaceAutoCalibrator();
-    neurofaceEngineRef.current = new NeuroFaceRuleEngine();
-    setNeurofaceStatus(neurofaceEngineRef.current.snapshot());
-    setFaceCalibrationProgress(0);
-    setFaceCalibrationMessage("Relax and look at the camera for about two seconds while your baseline is learned.");
-  }, [cameraStatus]);
-
-  const updateNeurofaceRule = useCallback(async (
-    rule: NeuroFaceRuleId | "enabled",
-    value: string | boolean,
-  ) => {
-    if (rule === "enabled") {
-      const enabled = Boolean(value);
-      neurofaceEnabledRef.current = enabled;
-      setNeurofaceEnabled(enabled);
-      try { localStorage.setItem("neuroface.enabled.v1", JSON.stringify(enabled)); } catch { /* session-only */ }
-      setFaceCalibrationMessage(enabled ? "Face rules are on." : "Face rules paused. Touch phrases still work.");
-      return;
-    }
-    const next = { ...neurofaceBindingsRef.current, [rule]: value === "" ? null : String(value) };
-    neurofaceBindingsRef.current = next;
-    setNeurofaceBindings(next);
-    try { localStorage.setItem("neuroface.bindings.v1", JSON.stringify(next)); } catch { /* session-only */ }
-    setFaceCalibrationMessage("Face rule phrase saved on this device.");
-  }, []);
 
   const saveSpeechPreferences = useCallback(async () => {
     try {
@@ -1852,29 +1498,6 @@ export function FingerSpeakApp() {
         <div className="system-badges">
           <button
             type="button"
-            className="neuroface-studio-btn"
-            onClick={() => setShowNeuroSenseDashboard(true)}
-            title="Open full NeuroSense Face Studio with dynamic curves and camera screen"
-            style={{
-              display: "inline-flex",
-              alignItems: "center",
-              gap: "6px",
-              padding: "6px 14px",
-              borderRadius: "999px",
-              background: "linear-gradient(135deg, rgba(16, 185, 129, 0.2), rgba(14, 165, 233, 0.2))",
-              border: "1px solid #10b981",
-              color: "#34d399",
-              fontSize: "12px",
-              fontWeight: 800,
-              cursor: "pointer",
-              boxShadow: "0 0 12px rgba(16, 185, 129, 0.2)",
-            }}
-          >
-            <span aria-hidden="true">👁️</span>
-            <span>NeuroSense Studio</span>
-          </button>
-          <button
-            type="button"
             className="theme-toggle-switch"
             onClick={toggleTheme}
             aria-label={`Switch to ${isDark ? "bright" : "dark"} mode`}
@@ -1917,7 +1540,7 @@ export function FingerSpeakApp() {
               >
                 <div className="role-card-icon">♡</div>
                 <strong>I am a Patient</strong>
-                <span>Reassuring, accessible dashboard with live facial/eye monitoring, Asha companion, quick speech cards, and emergency SOS.</span>
+                <span>Reassuring, accessible dashboard with live hand gesture monitoring, Asha companion, quick speech cards, and emergency SOS.</span>
                 <button className="select-btn" type="button">Enter Patient Mode</button>
               </div>
               <div
@@ -1938,32 +1561,6 @@ export function FingerSpeakApp() {
                 <button className="select-btn" type="button">Enter Caregiver Mode</button>
               </div>
             </div>
-            <div style={{ marginTop: "24px", display: "flex", justifyContent: "center" }}>
-              <button
-                type="button"
-                onClick={() => {
-                  selectRole("patient");
-                  setShowNeuroSenseDashboard(true);
-                }}
-                style={{
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: "10px",
-                  padding: "11px 24px",
-                  borderRadius: "999px",
-                  background: "linear-gradient(135deg, #065f46, #047857)",
-                  border: "2px solid #34d399",
-                  color: "#ffffff",
-                  fontSize: "13px",
-                  fontWeight: 800,
-                  cursor: "pointer",
-                  boxShadow: "0 6px 20px rgba(4, 120, 87, 0.45)",
-                }}
-              >
-                <span>👁️</span>
-                <span>Open NeuroSense™ Face Studio (Live Camera &amp; Dynamic Curves)</span>
-              </button>
-            </div>
           </div>
         )}
 
@@ -1972,35 +1569,9 @@ export function FingerSpeakApp() {
             <div className="patient-hero section-heading">
               <div className="patient-hero-copy">
                 <div><span className="eyebrow">PATIENT COMPANION</span><h1 id="speak-title">You’re not alone. Asha is right here.</h1><p className="patient-lead">Talk on your phone, write on the wheelchair display, or reach your caregiver—with every important action kept in your control.</p>
-                  <div style={{ marginTop: "12px" }}>
-                    <button
-                      type="button"
-                      onClick={() => setShowNeuroSenseDashboard(true)}
-                      style={{
-                        display: "inline-flex",
-                        alignItems: "center",
-                        gap: "8px",
-                        padding: "8px 16px",
-                        borderRadius: "12px",
-                        background: "linear-gradient(135deg, #075b55, #118378)",
-                        border: "1px solid rgba(169, 221, 210, 0.5)",
-                        color: "#ffffff",
-                        fontSize: "13px",
-                        fontWeight: 800,
-                        cursor: "pointer",
-                        boxShadow: "0 4px 14px rgba(7, 91, 85, 0.25)",
-                      }}
-                    >
-                      <span>👁️</span>
-                      <span>Open NeuroSense™ Face Dashboard &amp; Dynamic Curves</span>
-                      <span style={{ fontSize: "10px", padding: "2px 7px", background: "rgba(255, 255, 255, 0.2)", borderRadius: "999px" }}>
-                        Live Camera
-                      </span>
-                    </button>
-                  </div>
                 </div>
               </div>
-              <span className={tracking || faceTracking ? "tracking-pill live" : "tracking-pill"}>{tracking && faceTracking ? "Hand + face found" : faceTracking ? "Face found" : tracking ? "Hand found" : cameraStatus === "ready" ? "Monitoring active" : "Camera idle"}</span>
+              <span className={tracking ? "tracking-pill live" : "tracking-pill"}>{tracking ? "Hand found" : cameraStatus === "ready" ? "Monitoring active" : "Camera idle"}</span>
             </div>
             <div className="camera-column">
               <div className="camera-card">
@@ -2011,29 +1582,21 @@ export function FingerSpeakApp() {
                     <div className="camera-placeholder">
                       <span className="hand-orbit">✋</span>
                       <strong>{cameraStatus === "loading" ? "Preparing recognition…" : "Camera stays private"}</strong>
-                      <p>Only movement landmarks are processed for deliberate hand movements and auto-calibrated face rules. Video frames never leave this device.</p>
+                      <p>Only movement landmarks are processed for deliberate hand movements. Video frames never leave this device.</p>
                     </div>
                   )}
                   <div className="camera-status"><span className={tracking ? "status-dot live" : "status-dot"} />{cameraMessage}</div>
                 </div>
                 <div className="multimodal-status-row">
                   <span className="hud-status-badge">
-                    {faceTracking ? "🟢 Face in frame" : "🟡 Finding face"}
+                    {tracking ? "🟢 Hand in frame" : "🟡 Finding hand"}
                   </span>
                   <span className="hud-status-badge">
-                    👁 Face rules: {neurofaceStatus.calibrated ? "Watching" : `Calibrating ${Math.round(faceCalibrationProgress * 100)}%`}
+                    🫁 Breathing: Monitored
                   </span>
                   <span className="hud-status-badge">
-                    🫁 Breathing: Normal
+                    ⚡ Gesture Mode: Ready
                   </span>
-                  <span className="hud-status-badge">
-                    👄 Tremor: Monitored
-                  </span>
-                  {neurofaceStatus.lastTrigger && (
-                    <span className="hud-status-badge active-signal">
-                      ⚡ Signal: {NEUROFACE_RULE_LABELS[neurofaceStatus.lastTrigger.rule]}
-                    </span>
-                  )}
                 </div>
                 <div className="confidence-hud-meter" aria-label="Real-time gesture recognition accuracy">
                   <div className="confidence-hud-header">
@@ -2168,74 +1731,29 @@ export function FingerSpeakApp() {
                 <div className="confidence-track" aria-label={`Confirmation ${Math.round(intent.progress * 100)} percent`}><span style={{ width: `${intent.progress * 100}%` }} /></div>
               </div>
 
-              <div className="intent-card face-intent-card">
-                <div className="intent-topline">
-                  <span>NEUROFACE SENSE · ACTIVE TRACKING</span>
-                  <span className={`intent-state state-${neurofaceStatus.calibrated ? "ready" : "calibrating"}`}>
-                    {neurofaceStatus.calibrated ? "WATCHING" : "CALIBRATING"}
-                  </span>
-                </div>
-                <div className="recognized-gesture">
-                  <div className={`gesture-orb ${currentFaceGesture?.risk === "emergency" ? "danger" : ""}`} style={{ "--progress": `${Math.round(faceCalibrationProgress * 360)}deg` } as React.CSSProperties}>
-                    <span>{currentFaceGesture ? currentFaceGesture.icon : "◉"}</span>
-                  </div>
-                  <div>
-                    <small>
-                      {neurofaceStatus.calibrated ? "Live head gaze & blink control active" : "Learning your relaxed face…"}
-                    </small>
-                    <strong>
-                      {neurofaceStatus.metrics && Math.abs(neurofaceStatus.metrics.yawDeg) > 9
-                        ? (neurofaceStatus.metrics.yawDeg < 0 ? "◄ Looking Left (Navigate)" : "Looking Right (Navigate) ►")
-                        : faceTracking
-                        ? (neurofaceStatus.lastTrigger ? `${NEUROFACE_RULE_LABELS[neurofaceStatus.lastTrigger.rule]} → ${currentFaceGesture?.name ?? "Spoken"}` : `Focused: ${activePhrases[focusedPhraseIndex]?.name ?? "Ready"}`)
-                        : "Keep your face visible"}
-                    </strong>
-                    <p>Turn head left/right to move focus · Blink or hold 1.4s to speak · touch backup always available</p>
-                  </div>
-                </div>
-                <div className="confidence-track" aria-label={`Face auto-calibration ${Math.round(faceCalibrationProgress * 100)} percent`}>
-                  <span style={{ width: `${faceCalibrationProgress * 100}%` }} />
-                </div>
-              </div>
-
               <div className="phrase-header">
                 <div>
-                  <span className="eyebrow">FACIAL MAPPING & TOUCH BACKUP</span>
+                  <span className="eyebrow">QUICK PHRASES & TOUCH BACKUP</span>
                   <h2>Say it now</h2>
-                </div>
-                <div className="face-control-hint">
-                  <span className="hint-pill">Turn Head: Navigate</span>
-                  <span className="hint-pill">Blink or Hold: Speak</span>
                 </div>
               </div>
               <div className="phrase-grid">
-                {activePhrases.map((gesture, index) => {
-                  const isFocused = faceTracking && index === focusedPhraseIndex;
-                  const isRecentlySelected = recentlySelectedId === gesture.id;
-                  return (
-                    <button
-                      key={gesture.id}
-                      className={`phrase-button risk-${gesture.risk} ${armedGestureId === gesture.id ? "armed" : ""} ${isFocused ? "face-focused" : ""} ${isRecentlySelected ? "face-selected" : ""}`}
-                      style={{ "--dwell-percent": `${isFocused ? Math.round(dwellProgress * 100) : 0}%` } as React.CSSProperties}
-                      onClick={() => handleManualPhrase(gesture)}
-                    >
-                      <span className="phrase-icon" aria-hidden="true">
-                        {gesture.icon}
-                        {isFocused && <span className="dwell-ring-badge" />}
-                      </span>
-                      <span>
-                        <strong>{armedGestureId === gesture.id ? "Touch again to confirm" : gesture.name}</strong>
-                        <small>{gesture.phrase}</small>
-                        {isFocused && (
-                          <span className="face-focus-tag">
-                            {dwellProgress > 0 ? `Holding (${Math.round(dwellProgress * 100)}%)` : "Face Focused · Blink to speak"}
-                          </span>
-                        )}
-                      </span>
-                      <span className="speak-arrow" aria-hidden="true">›</span>
-                    </button>
-                  );
-                })}
+                {activePhrases.map((gesture) => (
+                  <button
+                    key={gesture.id}
+                    className={`phrase-button risk-${gesture.risk} ${armedGestureId === gesture.id ? "armed" : ""}`}
+                    onClick={() => handleManualPhrase(gesture)}
+                  >
+                    <span className="phrase-icon" aria-hidden="true">
+                      {gesture.icon}
+                    </span>
+                    <span>
+                      <strong>{armedGestureId === gesture.id ? "Touch again to confirm" : gesture.name}</strong>
+                      <small>{gesture.phrase}</small>
+                    </span>
+                    <span className="speak-arrow" aria-hidden="true">›</span>
+                  </button>
+                ))}
               </div>
 
               {/* Bottom Vitals Bar */}
@@ -2286,29 +1804,6 @@ export function FingerSpeakApp() {
                   <div className="progress-track"><span style={{ width: `${Math.min(100, capturedCount / requiredCount * 100)}%` }} /></div>
                   <strong>{calibrationReady ? "Ready to train" : "Keep going"}</strong>
                 </div>
-                <section className="face-calibration-card" aria-labelledby="face-calibration-title">
-                  <div className="face-calibration-head">
-                    <div><span className="eyebrow">FACE RULES</span><h2 id="face-calibration-title">Your face calibrates itself</h2></div>
-                    <button className="button primary" type="button" onClick={startFaceCalibration} disabled={cameraStatus !== "ready"}>Reset face baseline</button>
-                  </div>
-                  <p>Blink 5 times for water · hold a smile when feeling good · turn your head right 5 times for food. A sustained one-sided droop or distress movement calls for emergency help. No manual setup — your relaxed face is the baseline.</p>
-                  <div className="progress-track" aria-label={`Face auto-calibration ${Math.round(faceCalibrationProgress * 100)} percent`}><span style={{ width: `${faceCalibrationProgress * 100}%` }} /></div>
-                  <div className="toggle-row">
-                    <span><strong>Use auto-calibrated face rules</strong><small>Detected rules speak immediately; emergency help also alerts your caregiver.</small></span>
-                    <button className="switch" type="button" role="switch" aria-label="Use auto-calibrated face rules" aria-checked={neurofaceEnabled} onClick={() => void updateNeurofaceRule("enabled", !neurofaceEnabled)}><i /></button>
-                  </div>
-                  <div className="face-binding-grid">
-                    {NEUROFACE_RULE_IDS.map((ruleId) => (
-                      <label key={ruleId}>{NEUROFACE_RULE_LABELS[ruleId]}
-                        <select value={neurofaceBindings[ruleId] ?? ""} onChange={(event) => void updateNeurofaceRule(ruleId, event.target.value)}>
-                          <option value="">Built-in phrase</option>
-                          {profile.gestures.filter((gesture) => gesture.phrase).map((gesture) => <option key={gesture.id} value={gesture.id}>{gesture.name}: {gesture.phrase}</option>)}
-                        </select>
-                      </label>
-                    ))}
-                  </div>
-                  <small className="face-calibration-status" role="status">{faceCalibrationMessage}</small>
-                </section>
                 <div className="gesture-list">
                   {profile.gestures.map((gesture, index) => (
                     <article className="gesture-row" key={gesture.id}>
@@ -2332,7 +1827,7 @@ export function FingerSpeakApp() {
                     </div>
                   </div>
                   <p style={{ color: "var(--muted)", fontSize: "13px", margin: "6px 0 16px" }}>
-                    Caregivers can add unlimited custom phrases and map them to any facial expression, eye movement, micro-tremor, or hand gesture.
+                    Caregivers can add custom phrases and map them to hand gestures, AAC actions, or assistive triggers.
                   </p>
 
                   <div className="custom-phrase-list">
@@ -2380,21 +1875,15 @@ export function FingerSpeakApp() {
                           onChange={(e) => setNewPhraseSignal(e.target.value)}
                           style={{ padding: "8px", borderRadius: "8px", border: "1px solid var(--line)", background: "white" }}
                         >
-                          <option value="Blink">Blink (Eye Closure)</option>
-                          <option value="Left Wink">Left Wink</option>
-                          <option value="Right Wink">Right Wink</option>
-                          <option value="Look Up">Look Up</option>
-                          <option value="Look Down">Look Down</option>
-                          <option value="Look Left">Look Left</option>
-                          <option value="Look Right">Look Right</option>
-                          <option value="Eye Tremor">Eye Tremor</option>
-                          <option value="Smile">Smile</option>
-                          <option value="Eyebrows Up">Eyebrows Up</option>
-                          <option value="Mouth Open">Mouth Open</option>
-                          <option value="Lip Tremor">Lip Tremor</option>
-                          <option value="Facial Muscle Activity">Facial Muscle Activity</option>
-                          <option value="Rapid Breathing">Rapid Breathing</option>
-                          <option value="Hand Gesture">Hand Gesture</option>
+                          <option value="Open Palm">Open Palm</option>
+                          <option value="Closed Fist">Closed Fist</option>
+                          <option value="Thumbs Up">Thumbs Up</option>
+                          <option value="Pointing">Pointing</option>
+                          <option value="Pinch Gesture">Pinch Gesture</option>
+                          <option value="Peace Sign">Peace Sign</option>
+                          <option value="Custom Hand Gesture">Custom Hand Gesture</option>
+                          <option value="Touch Screen Backup">Touch Screen Backup</option>
+                          <option value="Wheelchair Switch">Wheelchair Switch</option>
                         </select>
                       </label>
                       <label style={{ display: "flex", flexDirection: "column", gap: "4px", fontSize: "12px", fontWeight: "bold" }}>
@@ -2544,7 +2033,7 @@ export function FingerSpeakApp() {
                     </article>
                   ))}
                   {spoken.map((entry) => (
-                    <article key={entry.id} className={`timeline-event ${entry.risk}`}><i /><div><strong>{entry.phrase}</strong><p>{entry.gesture} · {entry.source === "gesture" ? "hand gesture confirmed" : entry.source === "face" ? "phone eye/face movement confirmed" : entry.source === "pi" ? "wheelchair camera intent confirmed" : "touch backup"}</p></div><time>{new Date(entry.at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</time></article>
+                    <article key={entry.id} className={`timeline-event ${entry.risk}`}><i /><div><strong>{entry.phrase}</strong><p>{entry.gesture} · {entry.source === "gesture" ? "hand gesture confirmed" : entry.source === "pi" ? "wheelchair camera intent confirmed" : "touch backup"}</p></div><time>{new Date(entry.at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</time></article>
                   ))}
                   {!spoken.length && !alerts.length && <div className="empty-state"><span>○</span><strong>No confirmed events yet</strong><p>Patient-selected phrases and consented alerts will appear here.</p></div>}
                 </div>
@@ -2582,6 +2071,12 @@ export function FingerSpeakApp() {
                     <div 
                       className={`voice-persona-card ${speechSettings.preference === "system-voice" && (!speechSettings.preferredVoiceUri || !speechSettings.preferredVoiceUri.toLowerCase().includes("male")) ? "selected" : ""}`}
                       onClick={() => setSpeechSettings((current) => ({ ...current, preference: "system-voice", preferredVoiceUri: null }))}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" || e.key === " ") {
+                          e.preventDefault();
+                          setSpeechSettings((current) => ({ ...current, preference: "system-voice", preferredVoiceUri: null }));
+                        }
+                      }}
                       role="button"
                       tabIndex={0}
                     >
@@ -2610,6 +2105,13 @@ export function FingerSpeakApp() {
                         const male = systemVoices.find((v) => v.name.toLowerCase().includes("male") || v.name.toLowerCase().includes("david") || v.name.toLowerCase().includes("george"));
                         setSpeechSettings((current) => ({ ...current, preference: "system-voice", preferredVoiceUri: male?.voiceURI ?? null }));
                       }}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" || e.key === " ") {
+                          e.preventDefault();
+                          const male = systemVoices.find((v) => v.name.toLowerCase().includes("male") || v.name.toLowerCase().includes("david") || v.name.toLowerCase().includes("george"));
+                          setSpeechSettings((current) => ({ ...current, preference: "system-voice", preferredVoiceUri: male?.voiceURI ?? null }));
+                        }
+                      }}
                       role="button"
                       tabIndex={0}
                     >
@@ -2635,6 +2137,12 @@ export function FingerSpeakApp() {
                     <div 
                       className={`voice-persona-card ${speechSettings.preference === "caregiver-recording-first" ? "selected" : ""}`}
                       onClick={() => setSpeechSettings((current) => ({ ...current, preference: "caregiver-recording-first" }))}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" || e.key === " ") {
+                          e.preventDefault();
+                          setSpeechSettings((current) => ({ ...current, preference: "caregiver-recording-first" }));
+                        }
+                      }}
                       role="button"
                       tabIndex={0}
                     >
@@ -2733,19 +2241,6 @@ export function FingerSpeakApp() {
         )}
       </main>
 
-      {/* Permanent Floating Quick Launcher for NeuroSense Face Studio */}
-      <button
-        type="button"
-        className="neuroface-floating-fab"
-        onClick={() => setShowNeuroSenseDashboard(true)}
-        aria-label="Open NeuroSense Face Studio with live dynamic curves"
-        title="Open full NeuroSense Face Studio with dynamic curves and camera screen"
-      >
-        <span className="fab-icon" aria-hidden="true">👁️</span>
-        <span>NeuroSense Studio</span>
-        <span className="fab-tag">Dynamic Curves</span>
-      </button>
-
       {view === "speak" && (
         <>
           <button
@@ -2779,20 +2274,6 @@ export function FingerSpeakApp() {
             </div>
           </div>
         </>
-      )}
-
-      {showNeuroSenseDashboard && (
-        <NeuroSenseDashboard
-          videoRef={videoRef}
-          cameraActive={cameraStatus === "ready"}
-          neurofaceStatus={neurofaceStatus}
-          faceCalibrationProgress={faceCalibrationProgress}
-          onRecalibrate={startFaceCalibration}
-          onClose={() => setShowNeuroSenseDashboard(false)}
-          onSpeakPhrase={(phrase) => void playLocalText(phrase)}
-          onStartCamera={() => void startCamera()}
-          recentSomaticEvents={recentSomaticEvents}
-        />
       )}
 
       <footer><span>NeuroBridge Asha prototype · not a validated medical device</span><span>Local inference → immediate speech → optional secure sync</span></footer>

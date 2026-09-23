@@ -9,7 +9,7 @@ import 'package:fingerspeak_mobile/services/calibration_service.dart';
 import 'package:fingerspeak_mobile/services/voice_service.dart';
 import 'package:fingerspeak_mobile/ui/doctor_report_sheet.dart';
 import 'package:fingerspeak_mobile/ui/effects/liquid_glass.dart';
-import 'package:fingerspeak_mobile/ui/facial_calibration_flow.dart';
+import 'package:fingerspeak_mobile/ui/hand_calibration_page.dart';
 import 'package:fingerspeak_mobile/ui/intent_calibration_page.dart';
 import 'package:fingerspeak_mobile/ui/patient_live_monitor_sheet.dart';
 import 'package:flutter/material.dart';
@@ -813,13 +813,13 @@ class _SettingsPageState extends State<SettingsPage> {
                   onPressed: () async {
                     await Navigator.of(context).push<bool>(
                       MaterialPageRoute(
-                        builder: (_) => FacialCalibrationFlow(services: widget.services),
+                        builder: (_) => HandCalibrationPage(services: widget.services),
                       ),
                     );
                     setState(() {});
                   },
-                  icon: const Icon(Icons.tune_rounded),
-                  label: const Text('Open 6-Step Facial Calibration'),
+                  icon: const Icon(Icons.pan_tool_alt_rounded),
+                  label: const Text('Open Hand Calibration Studio'),
                 ),
                 const SizedBox(height: 12),
                 const Divider(),

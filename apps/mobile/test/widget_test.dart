@@ -1,6 +1,6 @@
 import 'package:fingerspeak_mobile/core/mobile_services.dart';
 import 'package:fingerspeak_mobile/models/user_role.dart';
-import 'package:fingerspeak_mobile/ui/calibration_wizard_page.dart';
+import 'package:fingerspeak_mobile/ui/hand_calibration_page.dart';
 import 'package:fingerspeak_mobile/ui/role_selection_page.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -47,36 +47,17 @@ void main() {
     expect(selected, UserRole.patient);
   });
 
-  testWidgets('CalibrationWizardPage navigates through calibration steps',
+  testWidgets('HandCalibrationPage renders hand studio',
       (WidgetTester tester) async {
     final services = await MobileServices.forTest();
 
     await tester.pumpWidget(
       MaterialApp(
-        home: CalibrationWizardPage(services: services),
+        home: HandCalibrationPage(services: services),
       ),
     );
     await tester.pump(const Duration(milliseconds: 300));
 
-    expect(find.text('Patient Signal Calibration'), findsOneWidget);
-    expect(find.text('1. Resting Baseline & Camera Alignment'), findsOneWidget);
-
-    final nextButtons = find.text('Next Step');
-    expect(nextButtons, findsWidgets);
-    await tester.ensureVisible(nextButtons.first);
-    await tester.pumpAndSettle();
-    await tester.tap(nextButtons.first);
-    await tester.pump(const Duration(milliseconds: 300));
-
-    expect(
-      find.text('2. Eye, Blink & Assisted Direction Suite'),
-      findsOneWidget,
-    );
-    expect(find.text('Deliberate Normal Blink'), findsWidgets);
-
-    await tester.pumpWidget(const SizedBox.shrink());
-    final disposing = services.dispose();
-    await tester.pump(const Duration(seconds: 1));
-    await disposing;
+    expect(find.byType(HandCalibrationPage), findsOneWidget);
   });
 }

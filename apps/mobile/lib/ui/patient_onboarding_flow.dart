@@ -4,7 +4,7 @@ import 'package:fingerspeak_mobile/models/patient_access_method.dart';
 import 'package:fingerspeak_mobile/models/personal_access_profile.dart';
 import 'package:fingerspeak_mobile/services/voice_service.dart';
 import 'package:fingerspeak_mobile/ui/effects/liquid_glass.dart';
-import 'package:fingerspeak_mobile/ui/facial_calibration_flow.dart';
+import 'package:fingerspeak_mobile/ui/hand_calibration_page.dart';
 import 'package:flutter/material.dart';
 
 /// 5-Step Liquid Glass Patient Onboarding Flow matching the visual specification.
@@ -527,21 +527,21 @@ class _PatientOnboardingFlowState extends State<PatientOnboardingFlow>
           icon: Icons.accessibility_new_rounded,
           color: theme.toiletColor,
         ),
-        if (_selectedAccessMethodMode == 'face') ...[
+        if (_selectedAccessMethodMode == 'hand') ...[
           const SizedBox(height: 18),
           LiquidGlassCard(
             padding: const EdgeInsets.all(16),
-            customBorderColor: theme.waterColor.withValues(alpha: 0.5),
-            customGlowColor: theme.waterColor.withValues(alpha: 0.25),
+            customBorderColor: theme.speakColor.withValues(alpha: 0.5),
+            customGlowColor: theme.speakColor.withValues(alpha: 0.25),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Row(
                   children: [
-                    Icon(Icons.tune_rounded, color: theme.waterColor, size: 20),
+                    Icon(Icons.tune_rounded, color: theme.speakColor, size: 20),
                     const SizedBox(width: 8),
                     Text(
-                      'Learn Your Signals (Calibration)',
+                      'Learn Your Gestures (Calibration)',
                       style: TextStyle(
                         fontSize: 14.5,
                         fontWeight: FontWeight.w800,
@@ -552,7 +552,7 @@ class _PatientOnboardingFlowState extends State<PatientOnboardingFlow>
                 ),
                 const SizedBox(height: 6),
                 Text(
-                  'Calibrate your resting baseline, intentional blinks, smile threshold, and head poses for 99.4% accuracy.',
+                  'Record custom hand gesture samples with the 21-landmark DTW engine for high-accuracy signing.',
                   style: TextStyle(fontSize: 12, color: theme.textSecondary),
                 ),
                 const SizedBox(height: 12),
@@ -562,15 +562,15 @@ class _PatientOnboardingFlowState extends State<PatientOnboardingFlow>
                     onPressed: () {
                       Navigator.of(context).push(
                         MaterialPageRoute<void>(
-                          builder: (_) => FacialCalibrationFlow(services: widget.services),
+                          builder: (_) => HandCalibrationPage(services: widget.services),
                         ),
                       );
                     },
                     icon: const Icon(Icons.play_circle_outline_rounded),
-                    label: const Text('Launch 6-Step Facial Calibration'),
+                    label: const Text('Launch Hand Calibration Studio'),
                     style: OutlinedButton.styleFrom(
-                      foregroundColor: theme.waterColor,
-                      side: BorderSide(color: theme.waterColor),
+                      foregroundColor: theme.speakColor,
+                      side: BorderSide(color: theme.speakColor),
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                     ),
                   ),

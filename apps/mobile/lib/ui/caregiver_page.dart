@@ -6,7 +6,6 @@ import 'package:fingerspeak_mobile/models/patient_signal.dart';
 import 'package:fingerspeak_mobile/models/patient_record.dart';
 import 'package:fingerspeak_mobile/services/caregiver_notification_service.dart';
 import 'package:fingerspeak_mobile/services/asha_guide_service.dart';
-import 'package:fingerspeak_mobile/ui/calibration_wizard_page.dart';
 import 'package:fingerspeak_mobile/ui/caregiver_emergency_sheet.dart';
 import 'package:fingerspeak_mobile/ui/caregiver_voice_setup_page.dart';
 import 'package:fingerspeak_mobile/ui/doctor_report_sheet.dart';
@@ -17,9 +16,14 @@ import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 class CaregiverPage extends StatefulWidget {
-  const CaregiverPage({required this.services, super.key});
+  const CaregiverPage({
+    required this.services,
+    this.calibrationBuilder,
+    super.key,
+  });
 
   final MobileServices services;
+  final WidgetBuilder? calibrationBuilder;
 
   @override
   State<CaregiverPage> createState() => CaregiverPageState();
@@ -214,7 +218,8 @@ class CaregiverPageState extends State<CaregiverPage> {
   Future<void> _openCalibrationWizard() async {
     final completed = await Navigator.of(context).push<bool>(
       MaterialPageRoute<bool>(
-        builder: (_) => CalibrationWizardPage(services: widget.services),
+        builder: widget.calibrationBuilder ??
+            (_) => HandCalibrationPage(services: widget.services),
       ),
     );
     if (!mounted) return;

@@ -9,7 +9,7 @@ export const DEFAULT_MAIRA_PROJECT_KEY =
 export const DEFAULT_MAIRA_PROFILE_ID =
   "7edb5168-fafd-432c-80e9-de59acc9d0a2";
 
-export type SomaticModality = "fingerspeak_hand" | "neurosense_face" | "chat";
+export type SomaticModality = "fingerspeak_hand" | "chat";
 
 export type SomaticEvent = {
   id: string;
@@ -89,9 +89,7 @@ export function formatSomaticPrompt(
     const recent = events.slice(-3);
     const eventSummaries = recent.map((event) => {
       const modLabel =
-        event.modality === "neurosense_face"
-          ? "NeuroSense Face"
-          : event.modality === "fingerspeak_hand"
+        event.modality === "fingerspeak_hand"
           ? "FingerSpeak Hand"
           : "Somatic Input";
       const confStr = event.confidence !== undefined ? ` (${Math.round(event.confidence * 100)}% conf)` : "";
@@ -139,7 +137,7 @@ export async function askMaira(
     gpt_profile_id: DEFAULT_MAIRA_PROFILE_ID,
     conversation_metadata: {
       source: "neurobridge_web",
-      client: "fingerspeak_neurosense_suite",
+      client: "fingerspeak_suite",
       locale: locale || "en-US",
       has_somatic_events: Boolean(recentSomaticEvents && recentSomaticEvents.length > 0),
     },
@@ -171,13 +169,14 @@ export async function askMaira(
     }
 
     const rawRefs = Array.isArray(detail?.references) ? detail.references : [];
-    const citations: AshaCitation[] = rawRefs.slice(0, 3).map((ref: any, idx: number) => {
-      const secId = ref?.section_id || `Clinical Ref #${idx + 1}`;
-      const sim = ref?.similarity_score ? ` (Relevance: ${ref.similarity_score}%)` : "";
+    const citations: AshaCitation[] = rawRefs.slice(0, 3).map((refItem: unknown, idx: number) => {
+      const ref = typeof refItem === "object" && refItem !== null ? (refItem as Record<string, unknown>) : {};
+      const secId = (typeof ref.section_id === "string" && ref.section_id) || `Clinical Ref #${idx + 1}`;
+      const sim = ref.similarity_score ? ` (Relevance: ${String(ref.similarity_score)}%)` : "";
       return {
         title: `Maira Clinical Knowledge: ${secId}${sim}`,
-        url: typeof ref?.reference_url === "string" ? ref.reference_url : undefined,
-        snippet: typeof ref?.content === "string" ? ref.content.slice(0, 200) : undefined,
+        url: typeof ref.reference_url === "string" ? ref.reference_url : undefined,
+        snippet: typeof ref.content === "string" ? ref.content.slice(0, 200) : undefined,
       };
     });
 

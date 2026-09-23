@@ -208,7 +208,6 @@ h2 { font-size: 28px; margin-bottom: 0; }
 .asha-device-row span { padding: 10px 11px; border: 1px solid rgba(255,255,255,.15); border-radius: 12px; background: rgba(255,255,255,.07); color: #cfe7e1; font-size: 9px; line-height: 1.4; }
 .asha-device-row strong { display: block; color: white; font-size: 10px; }
 .intent-card { background: var(--paper); border: 1px solid rgba(12,23,22,.1); border-radius: var(--radius); padding: 22px; box-shadow: 0 16px 45px rgba(18,39,35,.07); }
-.face-intent-card { margin-top: 12px; }
 .intent-topline { display: flex; align-items: center; justify-content: space-between; color: var(--muted); font-size: 10px; font-weight: 850; letter-spacing: .14em; }
 .intent-state { padding: 7px 10px; border-radius: 999px; background: var(--paper-soft); color: var(--muted); letter-spacing: .07em; }
 .state-candidate { background: #fff1d4; color: #80540f; }
@@ -242,88 +241,6 @@ h2 { font-size: 28px; margin-bottom: 0; }
 .phrase-button small { color: var(--muted); font-size: 10px; margin-top: 3px; line-height: 1.35; }
 .phrase-button.armed small { color: rgba(255,255,255,.8); }
 .speak-arrow { color: var(--muted); font-size: 25px; font-weight: 300; }
-
-/* Facial Navigation & Focused Phrase Button Styling */
-.phrase-button.face-focused {
-  border-color: var(--teal, #0d9488);
-  box-shadow: 0 0 0 3px rgba(13, 148, 136, 0.4), 0 12px 32px rgba(13, 148, 136, 0.15);
-  transform: translateY(-2px) scale(1.02);
-  position: relative;
-  overflow: hidden;
-}
-
-.phrase-button.face-focused::before {
-  content: "";
-  position: absolute;
-  top: 0;
-  left: 0;
-  bottom: 0;
-  width: var(--dwell-percent, 0%);
-  background: rgba(13, 148, 136, 0.16);
-  pointer-events: none;
-  transition: width 0.05s linear;
-  border-radius: inherit;
-}
-
-.phrase-button.face-focused .phrase-icon {
-  background: var(--teal, #0d9488);
-  color: #ffffff;
-  transform: scale(1.08);
-  transition: all 0.2s ease;
-  position: relative;
-}
-
-.dwell-ring-badge {
-  position: absolute;
-  inset: -3px;
-  border: 2px solid #06b6d4;
-  border-radius: inherit;
-  animation: pulse-ring 1.5s infinite;
-}
-
-@keyframes pulse-ring {
-  0% { transform: scale(1); opacity: 0.8; }
-  50% { transform: scale(1.12); opacity: 0.3; }
-  100% { transform: scale(1); opacity: 0.8; }
-}
-
-.face-focus-tag {
-  display: inline-block;
-  margin-top: 4px;
-  font-size: 10px;
-  font-weight: 700;
-  color: var(--teal-dark, #0f766e);
-  background: rgba(13, 148, 136, 0.12);
-  padding: 2px 7px;
-  border-radius: 99px;
-}
-
-.phrase-button.face-selected {
-  animation: pulse-select 0.5s ease-out;
-}
-
-@keyframes pulse-select {
-  0% { transform: scale(1); }
-  50% { transform: scale(1.08); box-shadow: 0 0 0 6px rgba(13, 148, 136, 0.7); }
-  100% { transform: scale(1); }
-}
-
-.face-control-hint {
-  display: flex;
-  gap: 8px;
-  align-items: center;
-  margin-top: 4px;
-}
-
-.hint-pill {
-  font-size: 11px;
-  font-weight: 600;
-  color: var(--teal-dark, #0f766e);
-  background: rgba(13, 148, 136, 0.1);
-  padding: 3px 9px;
-  border-radius: 99px;
-  border: 1px solid rgba(13, 148, 136, 0.2);
-}
 
 
 .calibration-page, .caregiver-page { width: min(1280px, calc(100% - 48px)); margin: 0 auto; padding: 62px 0 72px; }
@@ -359,14 +276,7 @@ h2 { font-size: 28px; margin-bottom: 0; }
 .profile-tools { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; margin-top: 15px; }
 .profile-tools button { border: 1px solid var(--line); background: #f7f4ee; padding: 10px; border-radius: 10px; font-size: 9px; font-weight: 800; cursor: pointer; }
 .asterisk { display: block; color: #858e8b; line-height: 1.45; margin-top: 10px; font-size: 9px; }
-.face-calibration-card { padding: 24px; border-top: 1px solid var(--line); background: #f8f5ef; }
-.face-calibration-head { display: flex; justify-content: space-between; align-items: center; gap: 18px; }
-.face-calibration-card h2 { font-size: 24px; }
-.face-calibration-card > p { max-width: 760px; margin: 14px 0; color: var(--muted); font-size: 11px; line-height: 1.55; }
-.face-binding-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 11px; margin-top: 18px; }
-.face-binding-grid label { display: grid; gap: 6px; color: var(--muted); font-size: 10px; font-weight: 800; }
-.face-binding-grid select, .access-card select, .access-card textarea { min-width: 0; width: 100%; border: 1px solid var(--line); border-radius: 9px; padding: 9px 10px; background: #fff; color: var(--ink); font-size: 10px; line-height: 1.45; }
-.face-calibration-status { display: block; margin-top: 15px; color: var(--teal-dark); font-size: 10px; line-height: 1.5; }
+.access-card select, .access-card textarea { min-width: 0; width: 100%; border: 1px solid var(--line); border-radius: 9px; padding: 9px 10px; background: #fff; color: var(--ink); font-size: 10px; line-height: 1.45; }
 
 .caregiver-intro { align-items: center; }
 .caregiver-intro > div { max-width: 840px; }
@@ -554,14 +464,11 @@ footer { min-height: 58px; border-top: 1px solid rgba(12,23,22,.12); display: fl
   .calibration-progress .progress-track { grid-column: 1 / -1; grid-row: 2; }
   .calibration-aside { grid-template-columns: 1fr; }
   .calibration-aside > * { grid-column: 1 !important; }
-  .face-calibration-head { align-items: flex-start; flex-direction: column; }
-  .face-calibration-head .button { width: 100%; }
-  .face-binding-grid { grid-template-columns: 1fr; }
   .caregiver-intro { align-items: flex-start; flex-direction: column; }
   .caregiver-status-grid { grid-template-columns: 1fr 1fr; gap: 8px; }
   .caregiver-status-grid article { min-height: 116px; padding: 14px; }
   .advanced-grid { grid-template-columns: 1fr; }
-  .access-card select, .access-card textarea, .face-binding-grid select { font-size: 16px; }
+  .access-card select, .access-card textarea { font-size: 16px; }
   .pi-display-page { width: min(100% - 28px, 620px); padding-top: 28px; }
   .pi-display-header { align-items: flex-start; flex-direction: column; }
   .pi-caption-stage { min-height: 300px; border-radius: 23px; padding-inline: 22px; }
@@ -1198,52 +1105,6 @@ footer { min-height: 58px; border-top: 1px solid rgba(12,23,22,.12); display: fl
   }
 }
 
-/* ── Persistent NeuroSense Face Studio Floating Button & Banner ── */
-.neuroface-floating-fab {
-  position: fixed;
-  bottom: 24px;
-  left: 24px;
-  z-index: 999;
-  display: inline-flex;
-  align-items: center;
-  gap: 10px;
-  padding: 12px 20px;
-  border-radius: 999px;
-  background: linear-gradient(135deg, #064e3b 0%, #065f46 50%, #047857 100%);
-  border: 2px solid #34d399;
-  color: #ffffff;
-  font-family: inherit;
-  font-size: 13px;
-  font-weight: 800;
-  letter-spacing: -0.01em;
-  box-shadow: 0 8px 30px rgba(6, 78, 59, 0.6), 0 0 16px rgba(52, 211, 153, 0.4);
-  cursor: pointer;
-  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-.neuroface-floating-fab:hover {
-  transform: translateY(-2px) scale(1.03);
-  box-shadow: 0 12px 35px rgba(6, 78, 59, 0.75), 0 0 24px rgba(52, 211, 153, 0.6);
-  border-color: #6ee7b7;
-}
-
-.neuroface-floating-fab .fab-icon {
-  font-size: 18px;
-  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3));
-}
-
-.neuroface-floating-fab .fab-tag {
-  background: rgba(52, 211, 153, 0.25);
-  border: 1px solid rgba(52, 211, 153, 0.5);
-  color: #a7f3d0;
-  font-size: 10px;
-  font-weight: 800;
-  padding: 2px 7px;
-  border-radius: 999px;
-  text-transform: uppercase;
-}
-
-/* Ensure mobile header never hides the NeuroSense studio button */
 @media (max-width: 680px) {
   .topbar {
     display: flex;
@@ -1259,17 +1120,6 @@ footer { min-height: 58px; border-top: 1px solid rgba(12,23,22,.12); display: fl
   }
   .privacy-badge, .cloud-badge {
     display: none !important;
-  }
-  .neuroface-studio-btn {
-    display: inline-flex !important;
-    padding: 6px 12px !important;
-    font-size: 11px !important;
-  }
-  .neuroface-floating-fab {
-    bottom: max(72px, calc(env(safe-area-inset-bottom) + 68px));
-    left: 12px;
-    padding: 10px 16px;
-    font-size: 12px;
   }
 }
 

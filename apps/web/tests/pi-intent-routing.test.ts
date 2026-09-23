@@ -1,21 +1,24 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { createDefaultFaceControlSettings } from "../app/lib/face-controls";
 import { createDefaultProfile } from "../app/lib/fingerspeak";
-import { PI_EMERGENCY_CONFIRMATION_WINDOW_MS, routePiPatientIntent } from "../app/lib/pi-intent-routing";
+import {
+  PI_EMERGENCY_CONFIRMATION_WINDOW_MS,
+  createDefaultPiControlSettings,
+  routePiPatientIntent,
+} from "../app/lib/pi-intent-routing";
 import type { PiPatientIntent, PiPatientIntentName } from "../app/lib/pi-device";
 
 test("Pi semantics map only through the current profile bindings", () => {
   const profile = createDefaultProfile();
-  const settings = createDefaultFaceControlSettings(profile.id);
-  settings.bindings["eyes-right"] = "nurse";
+  const settings = createDefaultPiControlSettings(profile.id);
+  settings.bindings["look_right"] = "nurse";
 
   const route = routePiPatientIntent(intent("look_right"), profile, settings, null, 1_000);
   assert.equal(route.action, "speak");
   if (route.action === "speak") assert.equal(route.gesture.id, "nurse");
 
-  settings.bindings["eyes-right"] = "missing-phrase";
+  settings.bindings["look_right"] = "missing-phrase";
   assert.equal(routePiPatientIntent(intent("look_right"), profile, settings, null, 1_000).action, "ignore");
   settings.profileId = "another-profile";
   assert.equal(routePiPatientIntent(intent("look_right"), profile, settings, null, 1_000).action, "ignore");
@@ -23,7 +26,7 @@ test("Pi semantics map only through the current profile bindings", () => {
 
 test("low-confidence or disabled Pi intents fail closed", () => {
   const profile = createDefaultProfile();
-  const settings = createDefaultFaceControlSettings(profile.id);
+  const settings = createDefaultPiControlSettings(profile.id);
   assert.equal(routePiPatientIntent({ ...intent("blink"), confidence: 0.71 }, profile, settings, null).action, "ignore");
   settings.enabled = false;
   assert.equal(routePiPatientIntent(intent("blink"), profile, settings, null).action, "ignore");
@@ -31,7 +34,7 @@ test("low-confidence or disabled Pi intents fail closed", () => {
 
 test("an emergency mapping requires two distinct deliberate edge events", () => {
   const profile = createDefaultProfile();
-  const settings = createDefaultFaceControlSettings(profile.id);
+  const settings = createDefaultPiControlSettings(profile.id);
   const firstEvent = intent("mouth_open", "11111111-1111-4111-8111-111111111111");
   const first = routePiPatientIntent(firstEvent, profile, settings, null, 1_000);
   assert.equal(first.action, "arm-emergency");

@@ -17,7 +17,7 @@ test("Maira default API keys are configured and formatted correctly", () => {
   assert.equal(DEFAULT_MAIRA_PROJECT_KEY.endsWith("="), true);
 });
 
-test("formatSomaticPrompt formats clinical context, FingerSpeak and NeuroSense events", () => {
+test("formatSomaticPrompt formats clinical context and FingerSpeak events", () => {
   const events: SomaticEvent[] = [
     {
       id: "ev-1",
@@ -29,11 +29,11 @@ test("formatSomaticPrompt formats clinical context, FingerSpeak and NeuroSense e
     },
     {
       id: "ev-2",
-      modality: "neurosense_face",
-      gestureId: "food-3-head-left",
+      modality: "fingerspeak_hand",
+      gestureId: "food",
       phrase: "I need food",
       confidence: 0.95,
-      detail: "3 leftward turns",
+      detail: "peace sign hold",
       timestamp: Date.now() - 5000,
     },
   ];
@@ -52,7 +52,7 @@ test("formatSomaticPrompt formats clinical context, FingerSpeak and NeuroSense e
 
   assert.match(formatted, /Clinical Context: Care Mode: communication/);
   assert.match(formatted, /FingerSpeak Hand: "I need water, please." \(92% conf\)/);
-  assert.match(formatted, /NeuroSense Face: "I need food" \(95% conf\) \[3 leftward turns\]/);
+  assert.match(formatted, /FingerSpeak Hand: "I need food" \(95% conf\) \[peace sign hold\]/);
   assert.match(formatted, /How can I safely swallow while sitting\?/);
 });
 
@@ -111,16 +111,16 @@ test("askMaira parses live/mocked Maira response structure with clinical citatio
           },
           conversation_id: "conv-12345",
         }),
-      } as any;
-    }) as any;
+      } as unknown as Response;
+    }) as unknown as typeof fetch;
 
     const res = await askMaira({
       message: "How should I position my neck?",
       recentSomaticEvents: [
         {
           id: "ev-1",
-          modality: "neurosense_face",
-          gestureId: "water-3-blinks",
+          modality: "fingerspeak_hand",
+          gestureId: "water",
           phrase: "I need water",
           timestamp: Date.now(),
         },

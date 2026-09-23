@@ -18,8 +18,6 @@ import 'package:fingerspeak_mobile/ui/intent_confirmation_banner.dart';
 import 'package:fingerspeak_mobile/ui/guide/asha_guide_host.dart';
 import 'package:fingerspeak_mobile/ui/patient_onboarding_flow.dart';
 import 'package:fingerspeak_mobile/ui/single_switch_scanning_view.dart';
-import 'package:fingerspeak_mobile/ui/face_control_main_page.dart';
-import 'package:fingerspeak_mobile/ui/facial_calibration_flow.dart';
 import 'package:fingerspeak_mobile/ui/widgets/draggable_asha_avatar.dart';
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -79,17 +77,6 @@ class _PatientPageState extends State<PatientPage> {
       return avg < 0.38;
     }
     return false;
-  }
-
-  void _openFaceControlStudio() {
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (context) => FaceControlMainPage(
-          services: widget.services,
-          initialShowMonitor: true,
-        ),
-      ),
-    );
   }
 
   @override
@@ -1105,16 +1092,6 @@ class _PatientPageState extends State<PatientPage> {
             ),
             Row(
               children: [
-                TextButton.icon(
-                  onPressed: _openFaceControlStudio,
-                  icon: const Icon(Icons.fullscreen_rounded, size: 16),
-                  label: const Text('Open Studio'),
-                  style: TextButton.styleFrom(
-                    foregroundColor: theme.waterColor,
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  ),
-                ),
-                const SizedBox(width: 4),
                 ListenableBuilder(
                   listenable: widget.services.ashaGuide,
                   builder: (context, _) {
@@ -1222,73 +1199,6 @@ class _PatientPageState extends State<PatientPage> {
               ],
             ),
           ),
-        const SizedBox(height: 14),
-        // Big Unmissable Launcher Card for NeuroSense Face Studio & Dynamic Curves
-        Container(
-          width: double.infinity,
-          decoration: BoxDecoration(
-            gradient: const LinearGradient(
-              colors: [Color(0xFF4338CA), Color(0xFF0284C7)],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            ),
-            borderRadius: BorderRadius.circular(16),
-            boxShadow: [
-              BoxShadow(
-                color: const Color(0xFF4338CA).withValues(alpha: 0.35),
-                blurRadius: 10,
-                offset: const Offset(0, 4),
-              ),
-            ],
-          ),
-          child: Material(
-            color: Colors.transparent,
-            child: InkWell(
-              borderRadius: BorderRadius.circular(16),
-              onTap: _openFaceControlStudio,
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                child: Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.2),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: const Icon(Icons.auto_graph_rounded, color: Colors.white, size: 24),
-                    ),
-                    const SizedBox(width: 14),
-                    const Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            '👁️ Open NeuroSense™ Face Studio & Curves',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 14.5,
-                              fontWeight: FontWeight.w800,
-                            ),
-                          ),
-                          SizedBox(height: 3),
-                          Text(
-                            'Live EAR waveform, multi-axis curves, camera & gesture rules',
-                            style: TextStyle(
-                              color: Colors.white70,
-                              fontSize: 12,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const Icon(Icons.arrow_forward_ios_rounded, color: Colors.white70, size: 16),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ),
         const SizedBox(height: 14),
         // Telemetry Chips
         Wrap(
@@ -1500,54 +1410,6 @@ class _PatientPageState extends State<PatientPage> {
               ),
             );
           },
-        ),
-        const SizedBox(height: 12),
-        Row(
-          children: [
-            Expanded(
-              child: ElevatedButton.icon(
-                onPressed: () {
-                  Navigator.of(context).push(
-                    MaterialPageRoute<void>(
-                      builder: (_) => FaceControlMainPage(services: widget.services),
-                    ),
-                  );
-                },
-                icon: const Icon(Icons.fullscreen_rounded),
-                label: const Text('Open Face Control UI (Screen 10 & 11)'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: theme.waterColor,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                ),
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 8),
-        Row(
-          children: [
-            Expanded(
-              child: OutlinedButton.icon(
-                onPressed: () {
-                  Navigator.of(context).push(
-                    MaterialPageRoute<void>(
-                      builder: (_) => FacialCalibrationFlow(services: widget.services),
-                    ),
-                  );
-                },
-                icon: const Icon(Icons.tune_rounded),
-                label: const Text('6-Step Facial Calibration (Screen 9)'),
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: theme.waterColor,
-                  side: BorderSide(color: theme.waterColor),
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                ),
-              ),
-            ),
-          ],
         ),
       ],
     );

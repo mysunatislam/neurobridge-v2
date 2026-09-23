@@ -143,8 +143,8 @@ if (flags["serve-check"]) {
     else if (!ref.startsWith("http") && !ref.startsWith("data:")) failures.push(`non-base ref: ${ref}`);
   }
   for (const ref of refs) await check(ref);
-  // Service worker + manifest + face models (camera needs these).
-  for (const extra of ["sw.js", "manifest.webmanifest", "models/face_landmarker.task", "models/hand_landmarker.task"]) {
+  // Service worker + manifest + hand models (camera needs these).
+  for (const extra of ["sw.js", "manifest.webmanifest", "models/hand_landmarker.task"]) {
     await check(`${base}/${extra}`);
   }
   server.close();

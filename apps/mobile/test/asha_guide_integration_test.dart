@@ -5,7 +5,6 @@ import 'package:fingerspeak_mobile/models/user_role.dart';
 import 'package:fingerspeak_mobile/services/asha_guide_service.dart';
 import 'package:fingerspeak_mobile/services/patient_signal_monitor.dart';
 import 'package:fingerspeak_mobile/ui/ability_assessment_page.dart';
-import 'package:fingerspeak_mobile/ui/calibration_wizard_page.dart';
 import 'package:fingerspeak_mobile/ui/caregiver_page.dart';
 import 'package:fingerspeak_mobile/ui/guide/asha_guide_host.dart';
 import 'package:fingerspeak_mobile/ui/patient_page.dart';
@@ -137,7 +136,10 @@ void main() {
     await tester.pumpWidget(MaterialApp(
       home: AshaGuideHost(
         service: services.ashaGuide,
-        child: CaregiverPage(services: services),
+        child: CaregiverPage(
+          services: services,
+          calibrationBuilder: (_) => const SizedBox(key: ValueKey('test_calib')),
+        ),
       ),
     ));
     await tester.pump();
@@ -156,7 +158,7 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('Start Step-by-Step Calibration'));
     await tester.pumpAndSettle();
-    Navigator.of(tester.element(find.byType(CalibrationWizardPage))).pop();
+    Navigator.of(tester.element(find.byKey(const ValueKey('test_calib')))).pop();
     await tester.pumpAndSettle();
     expect(services.ashaGuide.step, AshaGuideStep.calibration);
 
@@ -164,7 +166,7 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('Start Step-by-Step Calibration'));
     await tester.pumpAndSettle();
-    Navigator.of(tester.element(find.byType(CalibrationWizardPage))).pop(true);
+    Navigator.of(tester.element(find.byKey(const ValueKey('test_calib')))).pop(true);
     await tester.pumpAndSettle();
     expect(services.ashaGuide.step, AshaGuideStep.firstSession);
     await _disposeServices(tester, services);
