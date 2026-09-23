@@ -1,0 +1,20 @@
+{
+  "name": "FingerSpeak",
+  "short_name": "FingerSpeak",
+  "description": "Local-first personalized gesture-to-speech communication",
+  "start_url": "/neurobridge-v2/",
+  "scope": "/neurobridge-v2/",
+  "display": "standalone",
+  "background_color": "#0c1716",
+  "theme_color": "#0c1716",
+  "orientation": "any",
+  "categories": ["accessibility", "health", "medical"],
+  "icons": [
+    {
+      "src": "/neurobridge-v2/asha-avatar-face.webp",
+      "sizes": "512x512",
+      "type": "image/webp",
+      "purpose": "any maskable"
+    }
+  ]
+}
