@@ -52,8 +52,8 @@ if (!html.includes("<title>FingerSpeak")) {
 await mkdir(outDir, { recursive: true });
 await cp(path.join(here, "dist", "client"), outDir, { recursive: true });
 
-/** Rewrite root-absolute "/..." refs to "{base}/..." (skips //external). */
-const prefixRootAbsolute = (text) => text.replace(/(["'`(\s])\/(?!\/)/g, `$1${base}/`);
+/** Rewrite root-absolute "/..." refs to "{base}/..." (skips //external, />, and prose "/ "). */
+const prefixRootAbsolute = (text) => text.replace(/(["'`(\s])\/(?=[a-zA-Z0-9_.~-])/g, `$1${base}/`);
 
 async function collectFiles(dir, exts, out = []) {
   for (const entry of await readdir(dir, { withFileTypes: true })) {
@@ -88,8 +88,8 @@ console.log(`Pages bundle ready: ${outDir} (${html.length} bytes HTML, base="${b
 // must be zero for subpaths.
 const baseName = base ? base.replace(/^\//, "").replace(/[.*+?^${}()|[\]\\]/g, "\\$&") : null;
 const residualPattern = baseName
-  ? new RegExp(`(["'\`(\\s])\\/(?!\\/|${baseName}\\/)`, "g")
-  : /(["'`(\s])\/(?!\/)/g;
+  ? new RegExp(`(["'\`(\\s])\\/(?=[a-zA-Z0-9_.~-])(?!${baseName}\\/)`, "g")
+  : /(["'`(\s])\/(?=[a-zA-Z0-9_.~-])/g;
 const leftovers = new Set();
 for (const file of [path.join(outDir, "index.html"), path.join(outDir, "sw.js")]) {
   const text = await readFile(file, "utf8");
